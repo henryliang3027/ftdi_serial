@@ -16,8 +16,17 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
     'ftdi_serial/read_data',
   );
 
+  final EventChannel _deviceStatusChannel = const EventChannel(
+    'ftdi_serial/device_status',
+  );
+
   @override
   Stream<dynamic> get dataStream => _readDataChannel.receiveBroadcastStream();
+
+  @override
+  Stream<bool> get deviceStatusStream => _deviceStatusChannel
+      .receiveBroadcastStream()
+      .map((event) => event as bool);
 
   @override
   Future<String?> getPlatformVersion() async {
@@ -29,18 +38,17 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
 
   @override
   Future<DeviceListResult> createDeviceList() async {
-    try {
-      final Map<String, dynamic> result = await methodChannel.invokeMethod(
-        'createDeviceList',
-      );
-      return DeviceListResult.fromMap(result);
-    } catch (e) {
-      return DeviceListResult(
-        success: false,
-        error: e.toString(),
-        deviceCount: -1,
-      );
-    }
+    final result = await methodChannel.invokeMethod('createDeviceList');
+
+    // invokeMethod 回傳 dynamic
+    // method channel 將 Java 的 Map 轉換成 Dart 的 _Map<Object?, Object?>
+    // Map.from() 會建立一個新的 Map 並進行適當的型別轉換
+    // 安全的類型轉換寫法
+    final Map<String, dynamic> resultMap = Map<String, dynamic>.from(
+      result as Map,
+    );
+
+    return DeviceListResult.fromMap(resultMap);
   }
 
   @override
@@ -49,6 +57,12 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
     return DeviceStatus.values.firstWhere(
       (e) => e.toString().split('.').last.toUpperCase() == status,
     );
+  }
+
+  @override
+  Future<bool> connectToDevice() async {
+    final bool result = await methodChannel.invokeMethod('connectToDevice');
+    return result;
   }
 
   @override

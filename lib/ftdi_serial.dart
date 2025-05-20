@@ -14,8 +14,16 @@ class FtdiSerial {
     return FtdiSerialPlatform.instance.dataStream;
   }
 
+  Stream<bool> get deviceStatusStream {
+    return FtdiSerialPlatform.instance.deviceStatusStream;
+  }
+
   Future<DeviceListResult> createDeviceList() {
     return FtdiSerialPlatform.instance.createDeviceList();
+  }
+
+  Future<bool> connectToDevice() {
+    return FtdiSerialPlatform.instance.connectToDevice();
   }
 
   Future<DeviceStatus> checkDeviceStatus() {
