@@ -37,6 +37,12 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
   }
 
   @override
+  Future<bool> isDeviceAttached() async {
+    final bool result = await methodChannel.invokeMethod('isDeviceAttached');
+    return result;
+  }
+
+  @override
   Future<DeviceListResult> createDeviceList() async {
     final result = await methodChannel.invokeMethod('createDeviceList');
 

@@ -34,6 +34,10 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
   Stream<dynamic> get dataStream;
   Stream<bool> get deviceStatusStream;
 
+  Future<bool> isDeviceAttached() {
+    throw UnimplementedError('isDeviceAttached() has not been implemented.');
+  }
+
   Future<DeviceListResult> createDeviceList() {
     throw UnimplementedError('createDeviceList() has not been implemented.');
   }

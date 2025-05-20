@@ -20,6 +20,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
   String _isInitialized = 'Unknown';
+  String isAttached = 'False';
 
   final _ftdiSerialPlugin = FtdiSerial();
 
@@ -102,6 +103,7 @@ class _MyAppState extends State<MyApp> {
           children: [
             Center(child: Text('Running on: $_platformVersion\n')),
             Center(child: Text('USB Client: $_isInitialized\n')),
+            Center(child: Text('USB Attach: $isAttached\n')),
             Center(child: Text(rawData.length.toString())),
             ElevatedButton(
               onPressed: () {
@@ -112,6 +114,16 @@ class _MyAppState extends State<MyApp> {
                 usbClient.write(bytes);
               },
               child: const Text('Send Data'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                usbClient.isDeviceAttached().then((value) {
+                  setState(() {
+                    isAttached = value.toString();
+                  });
+                });
+              },
+              child: const Text('check attach'),
             ),
           ],
         ),

@@ -4,6 +4,10 @@ import androidx.annotation.NonNull;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.hardware.usb.UsbManager;
+import android.hardware.usb.UsbDevice;
+
+import java.util.HashMap;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.MethodCall;
@@ -36,6 +40,8 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
   private EventSink deviceStatusSink;
   private DeviceStatusThread deviceStatusThread;
   private boolean lastDeviceStatus = false;
+
+  private UsbManager usbManager;
 
   // Handler to post results back to the main thread
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -120,6 +126,20 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         }
     }
 
+  private boolean isDeviceAttached() {
+      UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+      HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
+
+      if (deviceList.isEmpty()) {
+          return false;
+      }
+
+      UsbDevice firstDevice = (UsbDevice) deviceList.values().toArray()[0];
+      int vendorId = firstDevice.getVendorId();
+
+      // FTDI vendor ID is 0x0403 (decimal: 1027)
+      return vendorId == 1027;
+  }
 
 
   private DeviceListResult createDeviceList() {
@@ -186,7 +206,7 @@ private boolean write(byte[] data) {
 }
 
 
-  private DeviceStatus checDeviceStatus() {
+  private DeviceStatus checkDeviceStatus() {
     if(ftDev == null || ftDev.isOpen() ==false){
       return DeviceStatus.DISCONNECTED;
     } else {
@@ -274,10 +294,13 @@ private boolean write(byte[] data) {
         DeviceListResult deviceList = createDeviceList();
         result.success(deviceList.toMap());
     } else if (call.method.equals("checkDeviceStatus")) {
-        DeviceStatus status = checDeviceStatus();
+        DeviceStatus status = checkDeviceStatus();
 
         // Send enum name as string
         result.success(status.name()); 
+    } else if (call.method.equals("isDeviceAttached")) {
+        boolean isAttached = isDeviceAttached();
+        result.success(isAttached);
     } else if( call.method.equals("connectToDevice")) {
         boolean success = connectToDevice();
         result.success(success);

@@ -18,6 +18,10 @@ class FtdiSerial {
     return FtdiSerialPlatform.instance.deviceStatusStream;
   }
 
+  Future<bool> isDeviceAttached() {
+    return FtdiSerialPlatform.instance.isDeviceAttached();
+  }
+
   Future<DeviceListResult> createDeviceList() {
     return FtdiSerialPlatform.instance.createDeviceList();
   }

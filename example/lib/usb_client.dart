@@ -27,6 +27,10 @@ class USBClient {
     return await _ftdiSerial.connectToDevice();
   }
 
+  Future<bool> isDeviceAttached() async {
+    return await _ftdiSerial.isDeviceAttached();
+  }
+
   void startListening({
     required Function(dynamic data) onDataReceived,
     Function(dynamic error)? onError,
