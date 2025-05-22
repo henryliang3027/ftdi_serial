@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:ftdi_serial/device_list_result.dart';
 import 'package:ftdi_serial/device_status.dart';
+import 'package:ftdi_serial/serial_device.dart';
 
 import 'ftdi_serial_platform_interface.dart';
 
@@ -18,8 +19,12 @@ class FtdiSerial {
     return FtdiSerialPlatform.instance.deviceStatusStream;
   }
 
-  Future<bool> isDeviceAttached() {
-    return FtdiSerialPlatform.instance.isDeviceAttached();
+  static Future<SerialDevice> getAttachedDevice() {
+    return FtdiSerialPlatform.instance.getAttachedDevice();
+  }
+
+  Future<bool> requestUsbPermission() {
+    return FtdiSerialPlatform.instance.requestUsbPermission();
   }
 
   Future<DeviceListResult> createDeviceList() {

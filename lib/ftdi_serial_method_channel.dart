@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:ftdi_serial/device_list_result.dart';
 import 'package:ftdi_serial/device_status.dart';
+import 'package:ftdi_serial/serial_device.dart';
 
 import 'ftdi_serial_platform_interface.dart';
 
@@ -37,9 +38,21 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
   }
 
   @override
-  Future<bool> isDeviceAttached() async {
-    final bool result = await methodChannel.invokeMethod('isDeviceAttached');
+  Future<bool> requestUsbPermission() async {
+    final bool result = await methodChannel.invokeMethod(
+      'requestUsbPermission',
+    );
     return result;
+  }
+
+  @override
+  Future<SerialDevice> getAttachedDevice() async {
+    final result = await methodChannel.invokeMethod('getAttachedDevice');
+    final Map<String, dynamic> resultMap = Map<String, dynamic>.from(
+      result as Map,
+    );
+    SerialDevice serialDevice = SerialDevice.fromMap(resultMap);
+    return serialDevice;
   }
 
   @override

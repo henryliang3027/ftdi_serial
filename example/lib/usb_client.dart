@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:ftdi_serial/device_list_result.dart';
 import 'package:ftdi_serial/ftdi_serial.dart';
+import 'package:ftdi_serial/serial_device.dart';
 
 class USBClient {
   final FtdiSerial _ftdiSerial = FtdiSerial();
@@ -19,6 +20,11 @@ class USBClient {
     return deviceListResult;
   }
 
+  Future<bool> requestUsbPermission() async {
+    // Request USB permission
+    return await _ftdiSerial.requestUsbPermission();
+  }
+
   Future write(Uint8List data) async {
     await _ftdiSerial.write(data);
   }
@@ -27,8 +33,8 @@ class USBClient {
     return await _ftdiSerial.connectToDevice();
   }
 
-  Future<bool> isDeviceAttached() async {
-    return await _ftdiSerial.isDeviceAttached();
+  static Future<SerialDevice> getAttachedDevice() async {
+    return await FtdiSerial.getAttachedDevice();
   }
 
   void startListening({

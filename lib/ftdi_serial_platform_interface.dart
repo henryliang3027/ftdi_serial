@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:ftdi_serial/device_list_result.dart';
 import 'package:ftdi_serial/device_status.dart';
+import 'package:ftdi_serial/serial_device.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'ftdi_serial_method_channel.dart';
@@ -34,8 +35,14 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
   Stream<dynamic> get dataStream;
   Stream<bool> get deviceStatusStream;
 
-  Future<bool> isDeviceAttached() {
-    throw UnimplementedError('isDeviceAttached() has not been implemented.');
+  Future<bool> requestUsbPermission() {
+    throw UnimplementedError(
+      'requestUsbPermission() has not been implemented.',
+    );
+  }
+
+  Future<SerialDevice> getAttachedDevice() {
+    throw UnimplementedError('getAttachedDevice() has not been implemented.');
   }
 
   Future<DeviceListResult> createDeviceList() {

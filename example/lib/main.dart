@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:ftdi_serial/device_list_result.dart';
 import 'package:ftdi_serial/ftdi_serial.dart';
+import 'package:ftdi_serial/serial_device.dart';
 import 'package:ftdi_serial_example/usb_client.dart';
 
 void main() {
@@ -21,6 +22,7 @@ class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
   String _isInitialized = 'Unknown';
   String isAttached = 'False';
+  String _isPermissionAllowed = 'False';
 
   final _ftdiSerialPlugin = FtdiSerial();
 
@@ -32,7 +34,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     initPlatformState();
-    init();
+    // init();
   }
 
   // Platform messages are asynchronous, so we initialize in an async method.
@@ -58,16 +60,13 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  Future<bool> requestUsbPermission() async {
+    bool result = await usbClient.requestUsbPermission();
+    print('USB Permission: $result');
+    return result;
+  }
+
   Future<void> init() async {
-    // Initialize the USB client
-    DeviceListResult deviceListResult = await usbClient.init();
-    print('deviceCount : ${deviceListResult.deviceCount}');
-    print('error: ${deviceListResult.error ?? ''}');
-    print('success: ${deviceListResult.success}');
-
-    bool isConnected = await usbClient.connect();
-    print('Connected to device: $isConnected');
-
     usbClient.startDeviceStatusListening(
       onStatusReceived: (data) {
         print('Device Status: $data');
@@ -77,21 +76,30 @@ class _MyAppState extends State<MyApp> {
       },
     );
 
-    // Start listening for data
-    usbClient.startListening(
-      onDataReceived: (data) {
-        print('Data received: $data');
+    // // Initialize the USB client
+    DeviceListResult deviceListResult = await usbClient.init();
+    print('deviceCount : ${deviceListResult.deviceCount}');
+    print('error: ${deviceListResult.error ?? ''}');
+    print('success: ${deviceListResult.success}');
 
-        print('Data length: ${data.length}');
-      },
-      onError: (error) {
-        print('Error: $error');
-      },
-    );
+    // bool isConnected = await usbClient.connect();
+    // print('Connected to device: $isConnected');
 
-    setState(() {
-      _isInitialized = 'Done';
-    });
+    // // Start listening for data
+    // usbClient.startListening(
+    //   onDataReceived: (data) {
+    //     print('Data received: $data');
+
+    //     print('Data length: ${data.length}');
+    //   },
+    //   onError: (error) {
+    //     print('Error: $error');
+    //   },
+    // );
+
+    // setState(() {
+    //   _isInitialized = 'Done';
+    // });
   }
 
   @override
@@ -116,14 +124,44 @@ class _MyAppState extends State<MyApp> {
               child: const Text('Send Data'),
             ),
             ElevatedButton(
-              onPressed: () {
-                usbClient.isDeviceAttached().then((value) {
-                  setState(() {
-                    isAttached = value.toString();
-                  });
+              onPressed: () async {
+                SerialDevice serialDevice = await USBClient.getAttachedDevice();
+                String text =
+                    'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
+
+                print(text);
+
+                setState(() {
+                  isAttached = text;
                 });
               },
               child: const Text('check attach'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                usbClient.stopListening();
+
+                setState(() {
+                  _isInitialized = 'Unknown';
+                  isAttached = 'False';
+                });
+
+                init();
+              },
+              child: const Text('Refresh'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                bool isPermissionAllowed =
+                    await usbClient.requestUsbPermission();
+
+                print('USB Permission: $isPermissionAllowed');
+
+                setState(() {
+                  _isPermissionAllowed = isPermissionAllowed.toString();
+                });
+              },
+              child: const Text('requestUsbPermission'),
             ),
           ],
         ),
