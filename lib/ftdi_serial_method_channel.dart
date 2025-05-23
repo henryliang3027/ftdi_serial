@@ -39,10 +39,17 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
 
   @override
   Future<bool> requestUsbPermission() async {
-    final bool result = await methodChannel.invokeMethod(
-      'requestUsbPermission',
-    );
-    return result;
+    try {
+      // 這邊會回傳 true 或 false
+      // true: 使用者允許 USB 權限
+      // false: 使用者拒絕 USB 權限
+      final bool result = await methodChannel.invokeMethod(
+        'requestUsbPermission',
+      );
+      return result;
+    } on PlatformException catch (e) {
+      return false;
+    }
   }
 
   @override

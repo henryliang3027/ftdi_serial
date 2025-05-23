@@ -9,6 +9,7 @@ import android.hardware.usb.UsbDevice;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
 
 import android.app.PendingIntent;
 import java.util.HashMap;
@@ -52,6 +53,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
     private UsbManager usbManager;
     private BroadcastReceiver usbReceiver;
+    private BroadcastReceiver permissionReceiver;
 
     // Handler to post results back to the main thread
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -68,7 +70,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private final byte XOFF = 0x13;
     private final int USB_DATA_BUFFER = 8192;
 
-    private static final String ACTION_USB_PERMISSION = "com.example.ftdi_serial.USB_PERMISSION";
+    private static final String ACTION_USB_PERMISSION = "com.example.ftdi_serial";
     private PendingIntent permissionIntent;
     private CompletableFuture<Boolean> permissionFuture;
 
@@ -121,75 +123,67 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private CompletableFuture<Boolean> requestUsbPermission() {
         permissionFuture = new CompletableFuture<>();
 
-        try {
-            UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-            HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
+        UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+        HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
 
-            if (deviceList.isEmpty()) {
-                permissionFuture.complete(false);
-                return permissionFuture;
-            }
-
-            UsbDevice device = (UsbDevice) deviceList.values().toArray()[0];
-            if (device == null) {
-                permissionFuture.complete(false);
-                return permissionFuture;
-            }
-
-            if (usbManager.hasPermission(device)) {
-                permissionFuture.complete(true);
-                return permissionFuture;
-            }
-
-            // 註冊廣播接收器來接收權限結果
-            BroadcastReceiver permissionReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    try {
-                        String action = intent.getAction();
-                        if (ACTION_USB_PERMISSION.equals(action)) {
-                            synchronized (this) {
-                                UsbDevice usbDevice;
-                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                    usbDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
-                                } else {
-                                    usbDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                                }
-                                boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
-
-                                try {
-                                    context.unregisterReceiver(this);
-                                } catch (IllegalArgumentException e) {
-                                    // Receiver not registered
-                                }
-
-                                if (usbDevice != null && usbDevice.equals(device)) {
-                                    permissionFuture.complete(granted);
-                                } else {
-                                    permissionFuture.complete(false);
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        permissionFuture.completeExceptionally(e);
-                    }
-                }
-            };
-
-            // 註冊廣播接收器
-            IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(permissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                context.registerReceiver(permissionReceiver, filter);
-            }
-
-            // 請求權限
-            usbManager.requestPermission(device, permissionIntent);
-
-        } catch (Exception e) {
-            permissionFuture.completeExceptionally(e);
+        if (deviceList.isEmpty()) {
+            permissionFuture.complete(false);
+            return permissionFuture;
         }
+
+        UsbDevice device = (UsbDevice) deviceList.values().toArray()[0];
+        if (device == null) {
+            permissionFuture.complete(false);
+            return permissionFuture;
+        }
+
+        if (usbManager.hasPermission(device)) {
+            System.out.println("Already has permission:");
+            permissionFuture.complete(true);
+            return permissionFuture;
+        }
+
+        // 註冊廣播接收器來接收權限結果
+        permissionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                String action = intent.getAction();
+
+                System.out.println("received action:" + action);
+                if (ACTION_USB_PERMISSION.equals(action)) {
+
+                    UsbDevice receivedDevice;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        // android 13, api level 33
+                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
+                    } else {
+                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                    }
+
+                    boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+
+                    System.out.println("granted: " + granted);
+                    context.unregisterReceiver(this);
+                    permissionFuture.complete(granted); // 完成 Future
+
+                }
+            }
+        };
+
+        // Register the receiver
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+
+        context.registerReceiver(permissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+
+        // Send the permission request
+        Intent intent = new Intent(ACTION_USB_PERMISSION);
+        intent.setPackage(context.getPackageName());
+
+        // use FLAG_MUTABLE to avoid the error:
+        // https://stackoverflow.com/questions/73267829/androidstudio-usb-extra-permission-granted-returns-false-always
+        PendingIntent permissionIntent = PendingIntent.getBroadcast(context, 0,
+                intent, PendingIntent.FLAG_MUTABLE);
+        usbManager.requestPermission(device, permissionIntent);
 
         return permissionFuture;
     }
@@ -412,12 +406,9 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             DeviceListResult deviceList = createDeviceList();
             result.success(deviceList.toMap());
         } else if (call.method.equals("requestUsbPermission")) {
-            try {
-                boolean hasPermission = requestUsbPermission().get(30, TimeUnit.SECONDS);
-                result.success(hasPermission);
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                result.error("USB_PERMISSION_ERROR", "Failed to get USB permission", e.getMessage());
-            }
+            requestUsbPermission().thenAccept(granted -> {
+                result.success(granted);
+            });
         } else if (call.method.equals("checkDeviceStatus")) {
             DeviceStatus status = checkDeviceStatus();
             // Send enum name as string
@@ -449,6 +440,11 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         if (usbReceiver != null) {
             context.unregisterReceiver(usbReceiver);
             usbReceiver = null;
+        }
+
+        if (permissionReceiver != null) {
+            context.unregisterReceiver(permissionReceiver);
+            permissionReceiver = null;
         }
     }
 }
