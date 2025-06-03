@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:ftdi_serial/device_list_result.dart';
-import 'package:ftdi_serial/device_status.dart';
 import 'package:ftdi_serial/serial_device.dart';
 
 import 'ftdi_serial_platform_interface.dart';
@@ -28,14 +27,6 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
   Stream<bool> get deviceStatusStream => _deviceStatusChannel
       .receiveBroadcastStream()
       .map((event) => event as bool);
-
-  @override
-  Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>(
-      'getPlatformVersion',
-    );
-    return version;
-  }
 
   @override
   Future<bool> requestUsbPermission() async {
@@ -75,14 +66,6 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
     );
 
     return DeviceListResult.fromMap(resultMap);
-  }
-
-  @override
-  Future<DeviceStatus> checkDeviceStatus() async {
-    final String status = await methodChannel.invokeMethod('checkDeviceStatus');
-    return DeviceStatus.values.firstWhere(
-      (e) => e.toString().split('.').last.toUpperCase() == status,
-    );
   }
 
   @override

@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:ftdi_serial/device_list_result.dart';
-import 'package:ftdi_serial/device_status.dart';
 import 'package:ftdi_serial/serial_device.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -28,10 +27,6 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
-  }
-
   Stream<dynamic> get dataStream;
   Stream<bool> get deviceStatusStream;
 
@@ -49,15 +44,11 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
     throw UnimplementedError('createDeviceList() has not been implemented.');
   }
 
-  Future<DeviceStatus> checkDeviceStatus() {
-    throw UnimplementedError('checkDeviceStatus() has not been implemented.');
-  }
-
   Future<bool> connectToDevice() {
     throw UnimplementedError('connectToDevice() has not been implemented.');
   }
 
-  Future<void> write(Uint8List data) {
+  Future<bool> write(Uint8List data) {
     throw UnimplementedError('write() has not been implemented.');
   }
 }

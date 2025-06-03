@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.util.Log;
 
 import android.app.PendingIntent;
 import java.util.HashMap;
@@ -46,13 +47,11 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private ReadThread readThread;
 
     // for detecting device status
-    private EventChannel deviceStatusChannel;
-    private EventSink deviceStatusSink;
-    // private DeviceStatusThread deviceStatusThread;
-    private boolean lastDeviceStatus = false;
+    private EventChannel usbStatusChannel;
+    private EventSink usbStatusSink;
 
     private UsbManager usbManager;
-    private BroadcastReceiver usbReceiver;
+    private BroadcastReceiver usbStatusReceiver;
     private BroadcastReceiver permissionReceiver;
 
     // Handler to post results back to the main thread
@@ -71,8 +70,6 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private final int USB_DATA_BUFFER = 8192;
 
     private static final String ACTION_USB_PERMISSION = "com.example.ftdi_serial";
-    private PendingIntent permissionIntent;
-    private CompletableFuture<Boolean> permissionFuture;
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -95,23 +92,21 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         });
 
         // Add device status channel
-        deviceStatusChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "ftdi_serial/device_status");
-        deviceStatusChannel.setStreamHandler(new StreamHandler() {
+        usbStatusChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "ftdi_serial/device_status");
+        usbStatusChannel.setStreamHandler(new StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
-                deviceStatusSink = events;
-                // startDeviceStatusMonitor();
-                registerUsbReceiver();
+                usbStatusSink = events;
+                registerUsbStatusReceiver();
             }
 
             @Override
             public void onCancel(Object arguments) {
-                deviceStatusSink = null;
-                // stopDeviceStatusMonitor();
+                usbStatusSink = null;
 
-                if (usbReceiver != null) {
-                    context.unregisterReceiver(usbReceiver);
-                    usbReceiver = null;
+                if (usbStatusReceiver != null) {
+                    context.unregisterReceiver(usbStatusReceiver);
+                    usbStatusReceiver = null;
                 }
             }
         });
@@ -121,7 +116,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private CompletableFuture<Boolean> requestUsbPermission() {
-        permissionFuture = new CompletableFuture<>();
+        CompletableFuture<Boolean> permissionFuture = new CompletableFuture<>();
 
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
@@ -138,7 +133,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         }
 
         if (usbManager.hasPermission(device)) {
-            System.out.println("Already has permission:");
+            Log.d("Tag", "Already has permission");
             permissionFuture.complete(true);
             return permissionFuture;
         }
@@ -149,7 +144,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             public void onReceive(Context ctx, Intent intent) {
                 String action = intent.getAction();
 
-                System.out.println("received action:" + action);
+                Log.d("Tag", "received action:" + action);
                 if (ACTION_USB_PERMISSION.equals(action)) {
 
                     UsbDevice receivedDevice;
@@ -162,7 +157,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
                     boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
 
-                    System.out.println("granted: " + granted);
+                    Log.d("Tag", "granted: " + granted);
                     context.unregisterReceiver(this);
                     permissionFuture.complete(granted); // 完成 Future
 
@@ -188,31 +183,35 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         return permissionFuture;
     }
 
-    private void registerUsbReceiver() {
-        usbReceiver = new BroadcastReceiver() {
+    private void registerUsbStatusReceiver() {
+        usbStatusReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String action = intent.getAction();
 
                 if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
                     // Device was attached
-                    if (deviceStatusSink != null) {
+                    Log.d("Tag", "Device was attached");
+                    if (usbStatusSink != null) {
                         mainHandler.post(() -> {
-                            deviceStatusSink.success(true);
+                            usbStatusSink.success(true);
                         });
                     }
 
                 } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
                     // Device was detached
-                    if (deviceStatusSink != null) {
+                    Log.d("Tag", "Device was detached");
+                    if (usbStatusSink != null) {
                         mainHandler.post(() -> {
-                            deviceStatusSink.success(false);
+                            usbStatusSink.success(false);
                         });
                     }
 
                     // Clean up resources
                     if (ftDev != null) {
-                        ftDev.close();
+                        if (ftDev.isOpen()) {
+                            ftDev.close();
+                        }
                         ftDev = null;
                     }
                     portIndex = -1;
@@ -224,7 +223,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
-        context.registerReceiver(usbReceiver, filter);
+        context.registerReceiver(usbStatusReceiver, filter);
     }
 
     private void startReading() {
@@ -233,26 +232,14 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void stopReading() {
+        Log.d("Tag", "stopReading");
         if (readThread != null) {
             readThread.interrupt();
             readThread = null;
+            Log.d("Tag", "finished stopReading");
         }
 
-        disconnect();
     }
-
-    // // Add new methods for device status monitoring
-    // private void startDeviceStatusMonitor() {
-    // deviceStatusThread = new DeviceStatusThread();
-    // deviceStatusThread.start();
-    // }
-
-    // private void stopDeviceStatusMonitor() {
-    // if (deviceStatusThread != null) {
-    // deviceStatusThread.interrupt();
-    // deviceStatusThread = null;
-    // }
-    // }
 
     private SerialDevice getAttachedDevice() {
 
@@ -327,34 +314,13 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         return true;
     }
 
-    private void disconnect() {
-        if (ftDev != null) {
-            if (true == ftDev.isOpen()) {
-                ftDev.close();
-            }
-        }
-        portIndex = -1;
-    }
-
     private boolean write(byte[] data) {
-        try {
-            if (ftDev == null || !ftDev.isOpen()) {
-                return false;
-            }
-            ftDev.write(data, data.length);
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (ftDev == null || !ftDev.isOpen()) {
             return false;
         }
-    }
+        ftDev.write(data, data.length);
+        return true;
 
-    private DeviceStatus checkDeviceStatus() {
-        if (ftDev == null || ftDev.isOpen() == false) {
-            return DeviceStatus.DISCONNECTED;
-        } else {
-            return DeviceStatus.CONNECTED;
-        }
     }
 
     class ReadThread extends Thread {
@@ -365,54 +331,60 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             while (!Thread.interrupted()) {
                 try {
                     Thread.sleep(50);
-                } catch (InterruptedException e) {
-                    break;
-                }
 
-                // Check if the device is open
-                // if not open, keep checking and not reading data
-                if (ftDev == null || !ftDev.isOpen()) {
-                    continue;
-                }
-
-                int readcount = ftDev.getQueueStatus();
-
-                if (readcount > 0) {
-                    if (readcount > USB_DATA_BUFFER) {
-                        readcount = USB_DATA_BUFFER;
+                    // Check if the device is open
+                    // if not open, keep checking and not reading data
+                    if (ftDev == null || !ftDev.isOpen()) {
+                        continue;
                     }
-                    byte[] usbdata = new byte[readcount];
-                    ftDev.read(usbdata, readcount);
 
-                    // Send data to Flutter through eventSink
+                    int readcount = ftDev.getQueueStatus();
+
+                    if (readcount > 0) {
+                        if (readcount > USB_DATA_BUFFER) {
+                            readcount = USB_DATA_BUFFER;
+                        }
+                        byte[] usbdata = new byte[readcount];
+                        ftDev.read(usbdata, readcount);
+
+                        // Send data to Flutter through eventSink
+                        if (readSink != null) {
+                            // Send to Flutter
+                            mainHandler.post(() -> {
+                                if (readSink != null) {
+                                    readSink.success(usbdata);
+                                }
+                            });
+                        }
+                    }
+
+                } catch (Exception e) {
+                    Log.d("Tag", "Error in read thread", e);
+                    // Notify Flutter about the error
                     if (readSink != null) {
-                        // Send to Flutter
+                        final String errorMessage = e.getMessage();
                         mainHandler.post(() -> {
                             if (readSink != null) {
-                                readSink.success(usbdata);
+                                readSink.error("READ_ERROR", errorMessage, null);
                             }
                         });
                     }
+                    break;
                 }
+
             }
         }
     }
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-        if (call.method.equals("getPlatformVersion")) {
-            result.success("Android " + android.os.Build.VERSION.RELEASE);
-        } else if (call.method.equals("createDeviceList")) {
+        if (call.method.equals("createDeviceList")) {
             DeviceListResult deviceList = createDeviceList();
             result.success(deviceList.toMap());
         } else if (call.method.equals("requestUsbPermission")) {
             requestUsbPermission().thenAccept(granted -> {
                 result.success(granted);
             });
-        } else if (call.method.equals("checkDeviceStatus")) {
-            DeviceStatus status = checkDeviceStatus();
-            // Send enum name as string
-            result.success(status.name());
         } else if (call.method.equals("getAttachedDevice")) {
             SerialDevice device = getAttachedDevice();
             result.success(device.toMap());
@@ -434,12 +406,12 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(null);
         readChannel.setStreamHandler(null); // Remove stream handler
         stopReading(); // Stop the reading thread
-        deviceStatusChannel.setStreamHandler(null);
+        usbStatusChannel.setStreamHandler(null);
         // stopDeviceStatusMonitor();
 
-        if (usbReceiver != null) {
-            context.unregisterReceiver(usbReceiver);
-            usbReceiver = null;
+        if (usbStatusReceiver != null) {
+            context.unregisterReceiver(usbStatusReceiver);
+            usbStatusReceiver = null;
         }
 
         if (permissionReceiver != null) {

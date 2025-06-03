@@ -33,31 +33,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    initPlatformState();
-    // init();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    // We also handle the message potentially returning null.
-    try {
-      platformVersion =
-          await _ftdiSerialPlugin.getPlatformVersion() ??
-          'Unknown platform version';
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = platformVersion;
-    });
+    // initPlatformState();
+    init();
   }
 
   Future<bool> requestUsbPermission() async {
@@ -70,20 +47,25 @@ class _MyAppState extends State<MyApp> {
     usbClient.startDeviceStatusListening(
       onStatusReceived: (data) {
         print('Device Status: $data');
+
+        if (data == false) {
+          usbClient.stopDeviceStatusListening();
+          usbClient.stopListening();
+        }
       },
       onError: (error) {
         print('Device Status Error: $error');
       },
     );
 
-    // // Initialize the USB client
+    // Initialize the USB client
     DeviceListResult deviceListResult = await usbClient.init();
     print('deviceCount : ${deviceListResult.deviceCount}');
     print('error: ${deviceListResult.error ?? ''}');
     print('success: ${deviceListResult.success}');
 
-    // bool isConnected = await usbClient.connect();
-    // print('Connected to device: $isConnected');
+    bool isConnected = await usbClient.connect();
+    print('Connected to device: $isConnected');
 
     // // Start listening for data
     // usbClient.startListening(
