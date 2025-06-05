@@ -63,12 +63,12 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private int portIndex = -1;
 
     // Resume transmission
-    private final byte XON = 0x11;
+    private static final byte XON = 0x11;
 
     // Pause transmission
-    private final byte XOFF = 0x13;
-    private final int USB_DATA_BUFFER = 8192;
+    private static final byte XOFF = 0x13;
 
+    private static final int USB_DATA_BUFFER = 8192;
     private static final String ACTION_USB_PERMISSION = "com.example.ftdi_serial";
 
     @Override
@@ -138,7 +138,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             return permissionFuture;
         }
 
-        // 註冊廣播接收器來接收權限結果
+        // subscribe to the permission broadcast to get the result
         permissionReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context ctx, Intent intent) {
@@ -208,13 +208,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
                     }
 
                     // Clean up resources
-                    if (ftDev != null) {
-                        if (ftDev.isOpen()) {
-                            ftDev.close();
-                        }
-                        ftDev = null;
-                    }
-                    portIndex = -1;
+                    disconnect();
                 }
             }
         };
@@ -226,17 +220,28 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         context.registerReceiver(usbStatusReceiver, filter);
     }
 
+    private void disconnect() {
+        // Clean up resources
+        if (ftDev != null) {
+            if (ftDev.isOpen()) {
+                ftDev.close();
+            }
+            ftDev = null;
+        }
+        portIndex = -1;
+    }
+
     private void startReading() {
         readThread = new ReadThread();
         readThread.start();
     }
 
     private void stopReading() {
-        Log.d("Tag", "stopReading");
+        disconnect();
         if (readThread != null) {
             readThread.interrupt();
             readThread = null;
-            Log.d("Tag", "finished stopReading");
+
         }
 
     }
@@ -328,48 +333,41 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         @Override
         public void run() {
 
-            while (!Thread.interrupted()) {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
                     Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    // This exception is thrown when the thread is interrupted during sleep,
+                    // The thread's interrupt status is automatically cleared (set to false)
+                    // call again to stop the thread and exit the loop
+                    Thread.currentThread().interrupt();
+                    break;
+                }
 
-                    // Check if the device is open
-                    // if not open, keep checking and not reading data
-                    if (ftDev == null || !ftDev.isOpen()) {
-                        continue;
+                // Check if the device is open
+                // exit the loop if the ftDev is not open
+                if (ftDev == null || !ftDev.isOpen()) {
+                    break;
+                }
+
+                int readcount = ftDev.getQueueStatus();
+
+                if (readcount > 0) {
+                    if (readcount > USB_DATA_BUFFER) {
+                        readcount = USB_DATA_BUFFER;
                     }
+                    byte[] usbdata = new byte[readcount];
+                    ftDev.read(usbdata, readcount);
 
-                    int readcount = ftDev.getQueueStatus();
-
-                    if (readcount > 0) {
-                        if (readcount > USB_DATA_BUFFER) {
-                            readcount = USB_DATA_BUFFER;
-                        }
-                        byte[] usbdata = new byte[readcount];
-                        ftDev.read(usbdata, readcount);
-
-                        // Send data to Flutter through eventSink
-                        if (readSink != null) {
-                            // Send to Flutter
-                            mainHandler.post(() -> {
-                                if (readSink != null) {
-                                    readSink.success(usbdata);
-                                }
-                            });
-                        }
-                    }
-
-                } catch (Exception e) {
-                    Log.d("Tag", "Error in read thread", e);
-                    // Notify Flutter about the error
+                    // Send data to Flutter through eventSink
                     if (readSink != null) {
-                        final String errorMessage = e.getMessage();
+                        // Send to Flutter
                         mainHandler.post(() -> {
                             if (readSink != null) {
-                                readSink.error("READ_ERROR", errorMessage, null);
+                                readSink.success(usbdata);
                             }
                         });
                     }
-                    break;
                 }
 
             }

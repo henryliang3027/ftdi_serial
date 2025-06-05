@@ -64,24 +64,32 @@ class _MyAppState extends State<MyApp> {
     print('error: ${deviceListResult.error ?? ''}');
     print('success: ${deviceListResult.success}');
 
+    if (deviceListResult.deviceCount == 0) {
+      return;
+    }
+
     bool isConnected = await usbClient.connect();
     print('Connected to device: $isConnected');
 
-    // // Start listening for data
-    // usbClient.startListening(
-    //   onDataReceived: (data) {
-    //     print('Data received: $data');
+    if (!isConnected) {
+      return;
+    }
 
-    //     print('Data length: ${data.length}');
-    //   },
-    //   onError: (error) {
-    //     print('Error: $error');
-    //   },
-    // );
+    // Start listening for data
+    usbClient.startListening(
+      onDataReceived: (data) {
+        print('Data received: $data');
 
-    // setState(() {
-    //   _isInitialized = 'Done';
-    // });
+        print('Data length: ${data.length}');
+      },
+      onError: (error) {
+        print('readSink Error: $error');
+      },
+    );
+
+    setState(() {
+      _isInitialized = 'Done';
+    });
   }
 
   @override
@@ -121,6 +129,7 @@ class _MyAppState extends State<MyApp> {
             ),
             ElevatedButton(
               onPressed: () {
+                usbClient.stopDeviceStatusListening();
                 usbClient.stopListening();
 
                 setState(() {
