@@ -10,7 +10,7 @@ import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
-import android.util.Log;
+import io.flutter.Log;
 
 import android.app.PendingIntent;
 import java.util.HashMap;
@@ -133,7 +133,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         }
 
         if (usbManager.hasPermission(device)) {
-            Log.d("Tag", "Already has permission");
+            Log.d("TAG", "Already has permission");
             permissionFuture.complete(true);
             return permissionFuture;
         }
@@ -144,7 +144,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             public void onReceive(Context ctx, Intent intent) {
                 String action = intent.getAction();
 
-                Log.d("Tag", "received action:" + action);
+                Log.d("TAG", "received action:" + action);
                 if (ACTION_USB_PERMISSION.equals(action)) {
 
                     UsbDevice receivedDevice;
@@ -157,7 +157,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
                     boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
 
-                    Log.d("Tag", "granted: " + granted);
+                    Log.d("TAG", "granted: " + granted);
                     context.unregisterReceiver(this);
                     permissionFuture.complete(granted); // 完成 Future
 
@@ -191,7 +191,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
                 if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
                     // Device was attached
-                    Log.d("Tag", "Device was attached");
+                    Log.d("TAG", "Device was attached");
                     if (usbStatusSink != null) {
                         mainHandler.post(() -> {
                             usbStatusSink.success(true);
@@ -200,7 +200,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
                 } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
                     // Device was detached
-                    Log.d("Tag", "Device was detached");
+                    Log.d("TAG", "Device was detached");
                     if (usbStatusSink != null) {
                         mainHandler.post(() -> {
                             usbStatusSink.success(false);
@@ -247,7 +247,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private SerialDevice getAttachedDevice() {
-
+        Log.d("TAG", "getAttachedDevice");
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
 
