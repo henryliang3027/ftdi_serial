@@ -20,11 +20,15 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
-  String _isInitialized = 'Unknown';
-  String isAttached = 'False';
-  String _isPermissionAllowed = 'False';
 
+  String _attachedInfo = 'Unknown';
+  bool _isPermissionAllowed = false;
+  bool _isStartDeviceStatusListening = false;
+  bool _isStartDataListening = false;
+  bool _isConnected = false;
   final _ftdiSerialPlugin = FtdiSerial();
+  int _dataReceivedCount = 0;
+  int _dataLength = 0;
 
   USBClient usbClient = USBClient();
 
@@ -34,7 +38,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     // initPlatformState();
-    init();
+    // init();
   }
 
   Future<bool> requestUsbPermission() async {
@@ -43,7 +47,7 @@ class _MyAppState extends State<MyApp> {
     return result;
   }
 
-  Future<void> init() async {
+  void startDeviceStatusListening() {
     usbClient.startDeviceStatusListening(
       onStatusReceived: (data) {
         print('Device Status: $data');
@@ -57,9 +61,32 @@ class _MyAppState extends State<MyApp> {
         print('Device Status Error: $error');
       },
     );
+    print('Started Device Status Listening');
+  }
+
+  void startDataListening() {
+    usbClient.startListening(
+      onDataReceived: (data) {
+        print('Data received: $data');
+
+        print('Data length: ${data.length}');
+
+        setState(() {
+          _dataReceivedCount++;
+          _dataLength = data.length;
+        });
+      },
+      onError: (error) {
+        print('readSink Error: $error');
+      },
+    );
+  }
+
+  Future<void> init() async {
+    startDeviceStatusListening();
 
     // Initialize the USB client
-    DeviceListResult deviceListResult = await usbClient.init();
+    DeviceListResult deviceListResult = await usbClient.createDeviceList();
     print('deviceCount : ${deviceListResult.deviceCount}');
     print('error: ${deviceListResult.error ?? ''}');
     print('success: ${deviceListResult.success}');
@@ -76,19 +103,12 @@ class _MyAppState extends State<MyApp> {
     }
 
     // Start listening for data
-    usbClient.startListening(
-      onDataReceived: (data) {
-        print('Data received: $data');
-
-        print('Data length: ${data.length}');
-      },
-      onError: (error) {
-        print('readSink Error: $error');
-      },
-    );
+    startDataListening();
 
     setState(() {
-      _isInitialized = 'Done';
+      _isStartDeviceStatusListening = true;
+      _isStartDataListening = true;
+      _isConnected = true;
     });
   }
 
@@ -100,46 +120,33 @@ class _MyAppState extends State<MyApp> {
         body: Column(
           children: [
             Center(child: Text('Running on: $_platformVersion\n')),
-            Center(child: Text('USB Client: $_isInitialized\n')),
-            Center(child: Text('USB Attach: $isAttached\n')),
-            Center(child: Text(rawData.length.toString())),
-            ElevatedButton(
-              onPressed: () {
-                List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
-
-                Uint8List bytes = Uint8List.fromList(data);
-
-                usbClient.write(bytes);
-              },
-              child: const Text('Send Data'),
+            Center(child: Text('Attached Info: $_attachedInfo\n')),
+            Center(child: Text('USB Permission: $_isPermissionAllowed\n')),
+            Center(
+              child: Text(
+                'Device Status Listening: $_isStartDeviceStatusListening\n',
+              ),
+            ),
+            Center(
+              child: Text('Device Data Listining: $_isStartDataListening\n'),
+            ),
+            Center(child: Text('Connected: $_isConnected\n')),
+            Center(
+              child: Text(
+                'Data Received: ${_dataLength}_${_dataReceivedCount}\n',
+              ),
             ),
             ElevatedButton(
               onPressed: () async {
                 SerialDevice serialDevice = await USBClient.getAttachedDevice();
-                String text =
-                    'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
-
-                print(text);
+                // String text =
+                //     'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
 
                 setState(() {
-                  isAttached = text;
+                  _attachedInfo = 'vendorId:${serialDevice.vendorId}';
                 });
               },
               child: const Text('check attach'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                usbClient.stopDeviceStatusListening();
-                usbClient.stopListening();
-
-                setState(() {
-                  _isInitialized = 'Unknown';
-                  isAttached = 'False';
-                });
-
-                init();
-              },
-              child: const Text('Refresh'),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -149,10 +156,75 @@ class _MyAppState extends State<MyApp> {
                 print('USB Permission: $isPermissionAllowed');
 
                 setState(() {
-                  _isPermissionAllowed = isPermissionAllowed.toString();
+                  _isPermissionAllowed = true;
                 });
               },
               child: const Text('requestUsbPermission'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                startDeviceStatusListening();
+
+                setState(() {
+                  _isStartDeviceStatusListening = true;
+                });
+              },
+              child: const Text('Start Device Status Listening'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                DeviceListResult deviceListResult =
+                    await usbClient.createDeviceList();
+                print('deviceCount : ${deviceListResult.deviceCount}');
+                print('error: ${deviceListResult.error ?? ''}');
+                print('success: ${deviceListResult.success}');
+
+                bool isConnected = await usbClient.connect();
+                setState(() {
+                  _isConnected = true;
+                });
+              },
+              child: const Text('connect'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                startDataListening();
+
+                setState(() {
+                  _isStartDataListening = true;
+                });
+              },
+              child: const Text('Start Data Listening'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
+                Uint8List bytes = Uint8List.fromList(data);
+                usbClient.write(bytes);
+              },
+              child: const Text('Send Data'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                usbClient.stopDeviceStatusListening();
+                usbClient.stopListening();
+
+                setState(() {
+                  _isStartDeviceStatusListening = false;
+                  _isStartDataListening = false;
+                  _isConnected = false;
+                });
+              },
+              child: const Text('dispose'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                init();
+              },
+              child: const Text('reinitialize'),
             ),
           ],
         ),

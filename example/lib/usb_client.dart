@@ -13,7 +13,7 @@ class USBClient {
   Stream<bool>? _deviceStatusDataStream;
   StreamSubscription? _deviceStatusSubscription;
 
-  Future<DeviceListResult> init() async {
+  Future<DeviceListResult> createDeviceList() async {
     // Initialize the USB client
     DeviceListResult deviceListResult = await _ftdiSerial.createDeviceList();
 
