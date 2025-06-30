@@ -117,116 +117,119 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('Plugin example app')),
-        body: Column(
-          children: [
-            Center(child: Text('Running on: $_platformVersion\n')),
-            Center(child: Text('Attached Info: $_attachedInfo\n')),
-            Center(child: Text('USB Permission: $_isPermissionAllowed\n')),
-            Center(
-              child: Text(
-                'Device Status Listening: $_isStartDeviceStatusListening\n',
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              Center(child: Text('Running on: $_platformVersion\n')),
+              Center(child: Text('Attached Info: $_attachedInfo\n')),
+              Center(child: Text('USB Permission: $_isPermissionAllowed\n')),
+              Center(
+                child: Text(
+                  'Device Status Listening: $_isStartDeviceStatusListening\n',
+                ),
               ),
-            ),
-            Center(
-              child: Text('Device Data Listining: $_isStartDataListening\n'),
-            ),
-            Center(child: Text('Connected: $_isConnected\n')),
-            Center(
-              child: Text(
-                'Data Received: ${_dataLength}_${_dataReceivedCount}\n',
+              Center(
+                child: Text('Device Data Listining: $_isStartDataListening\n'),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                SerialDevice serialDevice = await USBClient.getAttachedDevice();
-                // String text =
-                //     'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
+              Center(child: Text('Connected: $_isConnected\n')),
+              Center(
+                child: Text(
+                  'Data Received: ${_dataLength}_${_dataReceivedCount}\n',
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  SerialDevice serialDevice =
+                      await USBClient.getAttachedDevice();
+                  String text =
+                      'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
 
-                setState(() {
-                  _attachedInfo = 'vendorId:${serialDevice.vendorId}';
-                });
-              },
-              child: const Text('check attach'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                bool isPermissionAllowed =
-                    await usbClient.requestUsbPermission();
+                  setState(() {
+                    _attachedInfo = text;
+                  });
+                },
+                child: const Text('check attach'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  bool isPermissionAllowed =
+                      await usbClient.requestUsbPermission();
 
-                print('USB Permission: $isPermissionAllowed');
+                  print('USB Permission: $isPermissionAllowed');
 
-                setState(() {
-                  _isPermissionAllowed = true;
-                });
-              },
-              child: const Text('requestUsbPermission'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                startDeviceStatusListening();
+                  setState(() {
+                    _isPermissionAllowed = true;
+                  });
+                },
+                child: const Text('requestUsbPermission'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  startDeviceStatusListening();
 
-                setState(() {
-                  _isStartDeviceStatusListening = true;
-                });
-              },
-              child: const Text('Start Device Status Listening'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                DeviceListResult deviceListResult =
-                    await usbClient.createDeviceList();
-                print('deviceCount : ${deviceListResult.deviceCount}');
-                print('error: ${deviceListResult.error ?? ''}');
-                print('success: ${deviceListResult.success}');
+                  setState(() {
+                    _isStartDeviceStatusListening = true;
+                  });
+                },
+                child: const Text('Start Device Status Listening'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  DeviceListResult deviceListResult =
+                      await usbClient.createDeviceList();
+                  print('deviceCount : ${deviceListResult.deviceCount}');
+                  print('error: ${deviceListResult.error ?? ''}');
+                  print('success: ${deviceListResult.success}');
 
-                bool isConnected = await usbClient.connect();
-                setState(() {
-                  _isConnected = true;
-                });
-              },
-              child: const Text('connect'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                startDataListening();
+                  bool isConnected = await usbClient.connect();
+                  setState(() {
+                    _isConnected = true;
+                  });
+                },
+                child: const Text('connect'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  startDataListening();
 
-                setState(() {
-                  _isStartDataListening = true;
-                });
-              },
-              child: const Text('Start Data Listening'),
-            ),
+                  setState(() {
+                    _isStartDataListening = true;
+                  });
+                },
+                child: const Text('Start Data Listening'),
+              ),
 
-            ElevatedButton(
-              onPressed: () {
-                List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
-                Uint8List bytes = Uint8List.fromList(data);
-                usbClient.write(bytes);
-              },
-              child: const Text('Send Data'),
-            ),
+              ElevatedButton(
+                onPressed: () {
+                  List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
+                  Uint8List bytes = Uint8List.fromList(data);
+                  usbClient.write(bytes);
+                },
+                child: const Text('Send Data'),
+              ),
 
-            ElevatedButton(
-              onPressed: () {
-                usbClient.stopDeviceStatusListening();
-                usbClient.stopListening();
+              ElevatedButton(
+                onPressed: () {
+                  usbClient.stopDeviceStatusListening();
+                  usbClient.stopListening();
 
-                setState(() {
-                  _isStartDeviceStatusListening = false;
-                  _isStartDataListening = false;
-                  _isConnected = false;
-                });
-              },
-              child: const Text('dispose'),
-            ),
+                  setState(() {
+                    _isStartDeviceStatusListening = false;
+                    _isStartDataListening = false;
+                    _isConnected = false;
+                  });
+                },
+                child: const Text('dispose'),
+              ),
 
-            ElevatedButton(
-              onPressed: () {
-                init();
-              },
-              child: const Text('reinitialize'),
-            ),
-          ],
+              ElevatedButton(
+                onPressed: () {
+                  init();
+                },
+                child: const Text('reinitialize'),
+              ),
+            ],
+          ),
         ),
       ),
     );
