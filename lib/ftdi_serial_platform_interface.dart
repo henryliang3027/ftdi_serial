@@ -28,7 +28,8 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
   }
 
   Stream<dynamic> get dataStream;
-  Stream<bool> get deviceStatusStream;
+  Stream<bool> get usbStatusStream;
+  Stream<bool> get deviceConnectionStatusStream;
 
   Future<bool> requestUsbPermission() {
     throw UnimplementedError(

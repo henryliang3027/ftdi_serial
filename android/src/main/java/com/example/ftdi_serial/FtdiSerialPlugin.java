@@ -50,6 +50,11 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private EventChannel usbStatusChannel;
     private EventSink usbStatusSink;
 
+    // for monitoring FTDI device connection status
+    private EventChannel deviceConnectionChannel;
+    private EventSink deviceConnectionSink;
+    private DeviceConnectionStatusThread deviceConnectionStatusThread;
+
     private UsbManager usbManager;
     private BroadcastReceiver usbStatusReceiver;
     private BroadcastReceiver permissionReceiver;
@@ -92,7 +97,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         });
 
         // Add device status channel
-        usbStatusChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "ftdi_serial/device_status");
+        usbStatusChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(), "ftdi_serial/usb_status");
         usbStatusChannel.setStreamHandler(new StreamHandler() {
             @Override
             public void onListen(Object arguments, EventChannel.EventSink events) {
@@ -108,6 +113,23 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
                     context.unregisterReceiver(usbStatusReceiver);
                     usbStatusReceiver = null;
                 }
+            }
+        });
+
+        // Add device connection monitoring channel
+        deviceConnectionChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(),
+                "ftdi_serial/device_connection_status");
+        deviceConnectionChannel.setStreamHandler(new StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                deviceConnectionSink = events;
+                startDeviceConnectionMonitoring();
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                deviceConnectionSink = null;
+                stopDeviceConnectionMonitoring();
             }
         });
 
@@ -207,8 +229,6 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
                         });
                     }
 
-                    // Clean up resources
-                    disconnect();
                 }
             }
         };
@@ -244,6 +264,18 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
 
         }
 
+    }
+
+    private void startDeviceConnectionMonitoring() {
+        deviceConnectionStatusThread = new DeviceConnectionStatusThread();
+        deviceConnectionStatusThread.start();
+    }
+
+    private void stopDeviceConnectionMonitoring() {
+        if (deviceConnectionStatusThread != null) {
+            deviceConnectionStatusThread.interrupt();
+            deviceConnectionStatusThread = null;
+        }
     }
 
     private SerialDevice getAttachedDevice() {
@@ -325,7 +357,6 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         }
         ftDev.write(data, data.length);
         return true;
-
     }
 
     class ReadThread extends Thread {
@@ -374,6 +405,37 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         }
     }
 
+    class DeviceConnectionStatusThread extends Thread {
+        @Override
+        public void run() {
+            boolean lastConnectionStatus = false;
+
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(500); // Check every 500ms
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+
+                boolean currentConnectionStatus = ftDev != null && ftDev.isOpen();
+
+                // Only emit when status changes to avoid flooding the stream
+                if (currentConnectionStatus != lastConnectionStatus) {
+                    lastConnectionStatus = currentConnectionStatus;
+
+                    if (deviceConnectionSink != null) {
+                        mainHandler.post(() -> {
+                            if (deviceConnectionSink != null) {
+                                deviceConnectionSink.success(currentConnectionStatus);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         if (call.method.equals("createDeviceList")) {
@@ -405,7 +467,8 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         readChannel.setStreamHandler(null); // Remove stream handler
         stopReading(); // Stop the reading thread
         usbStatusChannel.setStreamHandler(null);
-        // stopDeviceStatusMonitor();
+        deviceConnectionChannel.setStreamHandler(null);
+        stopDeviceConnectionMonitoring();
 
         if (usbStatusReceiver != null) {
             context.unregisterReceiver(usbStatusReceiver);

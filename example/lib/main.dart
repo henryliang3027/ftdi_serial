@@ -23,7 +23,8 @@ class _MyAppState extends State<MyApp> {
 
   String _attachedInfo = 'Unknown';
   bool _isPermissionAllowed = false;
-  bool _isStartDeviceStatusListening = false;
+  bool _isStartUsbStatusListening = false;
+  bool _isStartDeviceConnectionStatusListening = false;
   bool _isStartDataListening = false;
   bool _isConnected = false;
   final _ftdiSerialPlugin = FtdiSerial();
@@ -47,13 +48,12 @@ class _MyAppState extends State<MyApp> {
     return result;
   }
 
-  void startDeviceStatusListening() {
-    usbClient.startDeviceStatusListening(
+  void startUsbStatusListening() {
+    usbClient.startUsbStatusListening(
       onStatusReceived: (data) {
         print('Device Status: $data');
 
         if (data == false) {
-          usbClient.stopDeviceStatusListening();
           usbClient.stopListening();
         }
       },
@@ -82,8 +82,24 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  void startDeviceConnectionStatusListening() {
+    usbClient.startDeviceConnectionStatusListening(
+      onStatusReceived: (data) {
+        print('Device Connection Status: $data');
+
+        if (data == false) {
+          usbClient.stopDeviceConnectionStatusListening();
+        }
+      },
+      onError: (error) {
+        print('Device Connection Error: $error');
+      },
+    );
+    print('Started Device Connection Status Listening');
+  }
+
   Future<void> init() async {
-    startDeviceStatusListening();
+    startUsbStatusListening();
 
     // Initialize the USB client
     DeviceListResult deviceListResult = await usbClient.createDeviceList();
@@ -106,7 +122,7 @@ class _MyAppState extends State<MyApp> {
     startDataListening();
 
     setState(() {
-      _isStartDeviceStatusListening = true;
+      _isStartUsbStatusListening = true;
       _isStartDataListening = true;
       _isConnected = true;
     });
@@ -125,11 +141,16 @@ class _MyAppState extends State<MyApp> {
               Center(child: Text('USB Permission: $_isPermissionAllowed\n')),
               Center(
                 child: Text(
-                  'Device Status Listening: $_isStartDeviceStatusListening\n',
+                  'Usb Status Listening: $_isStartUsbStatusListening\n',
                 ),
               ),
               Center(
                 child: Text('Device Data Listining: $_isStartDataListening\n'),
+              ),
+              Center(
+                child: Text(
+                  'Device Connection Status Listining: $_isStartDeviceConnectionStatusListening\n',
+                ),
               ),
               Center(child: Text('Connected: $_isConnected\n')),
               Center(
@@ -165,13 +186,23 @@ class _MyAppState extends State<MyApp> {
               ),
               ElevatedButton(
                 onPressed: () {
-                  startDeviceStatusListening();
+                  startUsbStatusListening();
 
                   setState(() {
-                    _isStartDeviceStatusListening = true;
+                    _isStartUsbStatusListening = true;
                   });
                 },
-                child: const Text('Start Device Status Listening'),
+                child: const Text('Start Usb Status Listening'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  startDeviceConnectionStatusListening();
+
+                  setState(() {
+                    _isStartDeviceConnectionStatusListening = true;
+                  });
+                },
+                child: const Text('Start Device Connection Status Listening'),
               ),
               ElevatedButton(
                 onPressed: () async {
@@ -210,11 +241,12 @@ class _MyAppState extends State<MyApp> {
 
               ElevatedButton(
                 onPressed: () {
-                  usbClient.stopDeviceStatusListening();
+                  usbClient.stopUsbStatusListening();
                   usbClient.stopListening();
 
                   setState(() {
-                    _isStartDeviceStatusListening = false;
+                    _isStartUsbStatusListening = false;
+                    _isStartDeviceConnectionStatusListening = false;
                     _isStartDataListening = false;
                     _isConnected = false;
                   });

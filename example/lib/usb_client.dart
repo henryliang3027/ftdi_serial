@@ -10,8 +10,11 @@ class USBClient {
   Stream<dynamic>? _dataStream;
   StreamSubscription? _subscription;
 
-  Stream<bool>? _deviceStatusDataStream;
-  StreamSubscription? _deviceStatusSubscription;
+  Stream<bool>? _usbStatusDataStream;
+  StreamSubscription? _usbStatusSubscription;
+
+  Stream<bool>? _deviceConnectionStatusDataStream;
+  StreamSubscription? _deviceConnectionStatusSubscription;
 
   Future<DeviceListResult> createDeviceList() async {
     // Initialize the USB client
@@ -72,18 +75,18 @@ class USBClient {
     _subscription = null;
   }
 
-  void startDeviceStatusListening({
+  void startUsbStatusListening({
     required Function(dynamic data) onStatusReceived,
     Function(dynamic error)? onError,
   }) {
     // Cancel existing subscription if any
-    _deviceStatusSubscription?.cancel();
+    _usbStatusSubscription?.cancel();
 
     // Get the stream from FtdiSerial
-    _deviceStatusDataStream = _ftdiSerial.deviceStatusStream;
+    _usbStatusDataStream = FtdiSerial.usbStatusStream;
 
     // Subscribe to the stream
-    _deviceStatusSubscription = _deviceStatusDataStream?.listen(
+    _usbStatusSubscription = _usbStatusDataStream?.listen(
       (data) {
         // Handle received data
         onStatusReceived(data);
@@ -97,19 +100,57 @@ class USBClient {
       },
       onDone: () {
         print('Stream closed');
-        _deviceStatusSubscription = null;
+        _usbStatusSubscription = null;
       },
     );
   }
 
-  void stopDeviceStatusListening() {
-    _deviceStatusSubscription?.cancel();
-    _deviceStatusSubscription = null;
+  void stopUsbStatusListening() {
+    _usbStatusSubscription?.cancel();
+    _usbStatusSubscription = null;
+  }
+
+  void startDeviceConnectionStatusListening({
+    required Function(dynamic data) onStatusReceived,
+    Function(dynamic error)? onError,
+  }) {
+    // Cancel existing subscription if any
+    _deviceConnectionStatusSubscription?.cancel();
+
+    // Get the stream from FtdiSerial
+    _deviceConnectionStatusDataStream =
+        _ftdiSerial.deviceConnectionStatusStream;
+
+    // Subscribe to the stream
+    _deviceConnectionStatusSubscription = _deviceConnectionStatusDataStream
+        ?.listen(
+          (data) {
+            // Handle received data
+            onStatusReceived(data);
+          },
+          onError: (error) {
+            // Handle errors
+            if (onError != null) {
+              onError(error);
+            }
+            print('Stream error: $error');
+          },
+          onDone: () {
+            print('Stream closed');
+            _deviceConnectionStatusSubscription = null;
+          },
+        );
+  }
+
+  void stopDeviceConnectionStatusListening() {
+    _deviceConnectionStatusSubscription?.cancel();
+    _deviceConnectionStatusSubscription = null;
   }
 
   // Don't forget to dispose
   void dispose() {
     stopListening();
-    stopDeviceStatusListening();
+    stopUsbStatusListening();
+    stopDeviceConnectionStatusListening();
   }
 }

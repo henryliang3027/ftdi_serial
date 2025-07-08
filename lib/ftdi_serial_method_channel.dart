@@ -16,17 +16,26 @@ class MethodChannelFtdiSerial extends FtdiSerialPlatform {
     'ftdi_serial/read_data',
   );
 
-  final EventChannel _deviceStatusChannel = const EventChannel(
-    'ftdi_serial/device_status',
+  final EventChannel _usbStatusChannel = const EventChannel(
+    'ftdi_serial/usb_status',
+  );
+
+  final EventChannel _deviceConnectionStatusChannel = const EventChannel(
+    'ftdi_serial/device_connection_status',
   );
 
   @override
   Stream<dynamic> get dataStream => _readDataChannel.receiveBroadcastStream();
 
   @override
-  Stream<bool> get deviceStatusStream => _deviceStatusChannel
-      .receiveBroadcastStream()
-      .map((event) => event as bool);
+  Stream<bool> get usbStatusStream =>
+      _usbStatusChannel.receiveBroadcastStream().map((event) => event as bool);
+
+  @override
+  Stream<bool> get deviceConnectionStatusStream =>
+      _deviceConnectionStatusChannel.receiveBroadcastStream().map(
+        (event) => event as bool,
+      );
 
   @override
   Future<bool> requestUsbPermission() async {
