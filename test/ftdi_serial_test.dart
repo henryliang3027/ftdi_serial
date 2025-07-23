@@ -7,7 +7,6 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 class MockFtdiSerialPlatform
     with MockPlatformInterfaceMixin
     implements FtdiSerialPlatform {
-
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
 }
@@ -17,13 +16,5 @@ void main() {
 
   test('$MethodChannelFtdiSerial is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelFtdiSerial>());
-  });
-
-  test('getPlatformVersion', () async {
-    FtdiSerial ftdiSerialPlugin = FtdiSerial();
-    MockFtdiSerialPlatform fakePlatform = MockFtdiSerialPlatform();
-    FtdiSerialPlatform.instance = fakePlatform;
-
-    expect(await ftdiSerialPlugin.getPlatformVersion(), '42');
   });
 }

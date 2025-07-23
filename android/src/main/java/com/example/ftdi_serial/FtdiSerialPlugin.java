@@ -50,6 +50,11 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private EventChannel usbStatusChannel;
     private EventSink usbStatusSink;
 
+    // for monitoring USB permission status
+    private EventChannel usbPermissionChannel;
+    private EventSink usbPermissionSink;
+    private BroadcastReceiver usbPermissionReceiver;
+
     // for monitoring FTDI device connection status
     private EventChannel deviceConnectionChannel;
     private EventSink deviceConnectionSink;
@@ -112,6 +117,26 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
                 if (usbStatusReceiver != null) {
                     context.unregisterReceiver(usbStatusReceiver);
                     usbStatusReceiver = null;
+                }
+            }
+        });
+
+        // Add USB permission monitoring channel
+        usbPermissionChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(),
+                "ftdi_serial/usb_permission");
+        usbPermissionChannel.setStreamHandler(new StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                usbPermissionSink = events;
+                registerUsbPermissionReceiver();
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                usbPermissionSink = null;
+                if (usbPermissionReceiver != null) {
+                    context.unregisterReceiver(usbPermissionReceiver);
+                    usbPermissionReceiver = null;
                 }
             }
         });
@@ -240,8 +265,70 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         context.registerReceiver(usbStatusReceiver, filter);
     }
 
+    private void registerUsbPermissionReceiver() {
+        usbPermissionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                String action = intent.getAction();
+
+                Log.d("TAG", "USB Permission receiver - action: " + action);
+
+                if (ACTION_USB_PERMISSION.equals(action)) {
+                    UsbDevice receivedDevice;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
+                    } else {
+                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                    }
+
+                    boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
+
+                    Log.d("TAG", "USB Permission granted: " + granted);
+
+                    if (usbPermissionSink != null) {
+                        mainHandler.post(() -> {
+                            if (usbPermissionSink != null) {
+                                usbPermissionSink.success(granted);
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+        // Register for USB permission events
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            context.registerReceiver(usbPermissionReceiver, filter);
+        }
+
+        Log.d("TAG", "USB Permission receiver registered");
+    }
+
+    private boolean hasUsbPermission() {
+
+        UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+        HashMap<String, UsbDevice> deviceList = usbManager.getDeviceList();
+
+        if (deviceList.isEmpty()) {
+            Log.d("TAG", "deviceList is empty");
+            return false;
+        }
+
+        UsbDevice device = (UsbDevice) deviceList.values().toArray()[0];
+        boolean hasPermission = usbManager.hasPermission(device);
+        Log.d("TAG", "hasUsbPermission: " + hasPermission + ", device: " + device.getDeviceName());
+
+        return hasPermission;
+
+    }
+
     private void disconnect() {
         // Clean up resources
+        Log.d("TAG", "Disconnect from device");
         if (ftDev != null) {
             if (ftDev.isOpen()) {
                 ftDev.close();
@@ -249,6 +336,7 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             ftDev = null;
         }
         portIndex = -1;
+        ftD2xx = null;
     }
 
     private void startReading() {
@@ -445,6 +533,9 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             requestUsbPermission().thenAccept(granted -> {
                 result.success(granted);
             });
+        } else if (call.method.equals("hasUsbPermission")) {
+            boolean hasPermission = hasUsbPermission();
+            result.success(hasPermission);
         } else if (call.method.equals("getAttachedDevice")) {
             SerialDevice device = getAttachedDevice();
             result.success(device.toMap());
@@ -478,6 +569,11 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         if (permissionReceiver != null) {
             context.unregisterReceiver(permissionReceiver);
             permissionReceiver = null;
+        }
+
+        if (usbPermissionReceiver != null) {
+            context.unregisterReceiver(usbPermissionReceiver);
+            usbPermissionReceiver = null;
         }
     }
 }

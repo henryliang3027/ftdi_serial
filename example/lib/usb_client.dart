@@ -23,6 +23,11 @@ class USBClient {
     return deviceListResult;
   }
 
+  static Future<bool> hasUsbPermission() async {
+    // Check if USB permission is granted
+    return await FtdiSerial.hasUsbPermission();
+  }
+
   Future<bool> requestUsbPermission() async {
     // Request USB permission
     return await _ftdiSerial.requestUsbPermission();

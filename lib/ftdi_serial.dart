@@ -14,8 +14,16 @@ class FtdiSerial {
     return FtdiSerialPlatform.instance.usbStatusStream;
   }
 
+  static Stream<bool> get usbPermissionStream {
+    return FtdiSerialPlatform.instance.usbPermissionStream;
+  }
+
   static Future<SerialDevice> getAttachedDevice() {
     return FtdiSerialPlatform.instance.getAttachedDevice();
+  }
+
+  static Future<bool> hasUsbPermission() {
+    return FtdiSerialPlatform.instance.hasUsbPermission();
   }
 
   Stream<bool> get deviceConnectionStatusStream {

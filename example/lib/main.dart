@@ -22,6 +22,7 @@ class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
 
   String _attachedInfo = 'Unknown';
+  bool _hasPermission = false;
   bool _isPermissionAllowed = false;
   bool _isStartUsbStatusListening = false;
   bool _isStartDeviceConnectionStatusListening = false;
@@ -138,7 +139,10 @@ class _MyAppState extends State<MyApp> {
             children: [
               Center(child: Text('Running on: $_platformVersion\n')),
               Center(child: Text('Attached Info: $_attachedInfo\n')),
-              Center(child: Text('USB Permission: $_isPermissionAllowed\n')),
+              Center(child: Text('Has USB Permission : $_hasPermission\n')),
+              Center(
+                child: Text('USB Permission allowed: $_isPermissionAllowed\n'),
+              ),
               Center(
                 child: Text(
                   'Usb Status Listening: $_isStartUsbStatusListening\n',
@@ -170,6 +174,18 @@ class _MyAppState extends State<MyApp> {
                   });
                 },
                 child: const Text('check attach'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  bool hasPermission = await USBClient.hasUsbPermission();
+
+                  print('Has USB Permission: $hasPermission');
+
+                  setState(() {
+                    _hasPermission = hasPermission;
+                  });
+                },
+                child: const Text('HasUsbPermission'),
               ),
               ElevatedButton(
                 onPressed: () async {
