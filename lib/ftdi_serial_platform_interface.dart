@@ -30,7 +30,6 @@ abstract class FtdiSerialPlatform extends PlatformInterface {
   Stream<dynamic> get dataStream;
   Stream<bool> get usbStatusStream;
   Stream<bool> get deviceConnectionStatusStream;
-  Stream<bool> get usbPermissionStream;
 
   Future<bool> hasUsbPermission() {
     throw UnimplementedError('hasUsbPermission() has not been implemented.');
