@@ -3,7 +3,6 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:ftdi_serial/device_list_result.dart';
-import 'package:ftdi_serial/ftdi_serial.dart';
 import 'package:ftdi_serial/serial_device.dart';
 import 'package:ftdi_serial_example/usb_client.dart';
 
@@ -19,8 +18,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
-
   String _attachedInfo = 'Unknown';
   bool _hasPermission = false;
   bool _isPermissionAllowed = false;
@@ -28,98 +25,64 @@ class _MyAppState extends State<MyApp> {
   bool _isStartDeviceConnectionStatusListening = false;
   bool _isStartDataListening = false;
   bool _isConnected = false;
-  final _ftdiSerialPlugin = FtdiSerial();
   int _dataReceivedCount = 0;
-  int _dataLength = 0;
+  String _usbStatus = 'Unknown';
+
+  // 🔥 重要：用於組合分包數據
+  List<int> _combinedData = [];
 
   USBClient usbClient = USBClient();
-
-  List<int> rawData = [];
 
   @override
   void initState() {
     super.initState();
-    // initPlatformState();
-    // init();
+    // 不會自動連接，讓用戶手動操作
   }
 
-  Future<bool> requestUsbPermission() async {
-    bool result = await usbClient.requestUsbPermission();
-    print('USB Permission: $result');
-    return result;
-  }
-
-  void startUsbStatusListening() {
-    usbClient.startUsbStatusListening(
-      onStatusReceived: (data) {
-        print('Device Status: $data');
-
-        if (data == false) {
-          usbClient.stopListening();
-        }
-      },
-      onError: (error) {
-        print('Device Status Error: $error');
-      },
-    );
-    print('Started Device Status Listening');
-  }
-
+  // 🔥 重要：處理分包數據的方法
   void startDataListening() {
     usbClient.startListening(
       onDataReceived: (data) {
-        print('Data received: $data');
-
-        print('Data length: ${data.length}');
+        print('接收到封包: $data');
+        print('封包大小: ${data.length} bytes');
 
         setState(() {
-          _dataReceivedCount++;
-          _dataLength = data.length;
+          _dataReceivedCount++; // 記錄收到的封包數量
+          _combinedData.addAll(data); // 🔥 將每個封包加入組合數據
         });
       },
       onError: (error) {
-        print('readSink Error: $error');
+        print('數據接收錯誤: $error');
       },
     );
   }
 
-  void startDeviceConnectionStatusListening() {
-    usbClient.startDeviceConnectionStatusListening(
-      onStatusReceived: (data) {
-        print('Device Connection Status: $data');
-
-        if (data == false) {
-          usbClient.stopDeviceConnectionStatusListening();
-        }
-      },
-      onError: (error) {
-        print('Device Connection Error: $error');
-      },
-    );
-    print('Started Device Connection Status Listening');
-  }
-
+  // 初始化完整流程
   Future<void> init() async {
+    // 開始 USB 狀態監聽
     startUsbStatusListening();
 
-    // Initialize the USB client
+    // 創建設備列表
     DeviceListResult deviceListResult = await usbClient.createDeviceList();
-    print('deviceCount : ${deviceListResult.deviceCount}');
-    print('error: ${deviceListResult.error ?? ''}');
-    print('success: ${deviceListResult.success}');
+    print('找到設備數量: ${deviceListResult.deviceCount}');
+    print('錯誤: ${deviceListResult.error ?? '無'}');
+    print('成功: ${deviceListResult.success}');
 
     if (deviceListResult.deviceCount == 0) {
+      print('未找到 ACI+ 放大器');
       return;
     }
 
+    // 連接設備
     bool isConnected = await usbClient.connect();
-    print('Connected to device: $isConnected');
+    print('ACI+ 放大器連接狀態: $isConnected');
 
     if (!isConnected) {
+      print('連接失敗');
       return;
     }
 
-    // Start listening for data
+    // 開始數據監聽
     startDataListening();
 
     setState(() {
@@ -129,154 +92,278 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
+  // USB 狀態監聽
+  void startUsbStatusListening() {
+    usbClient.startUsbStatusListening(
+      onStatusReceived: (data) {
+        print('USB 狀態: $data');
+
+        setState(() {
+          _usbStatus = data ? '已連接' : '未連接';
+        });
+        if (data == false) {
+          // 設備被拔除，停止監聽
+          usbClient.stopListening();
+          setState(() {
+            _isConnected = false;
+            _isStartDataListening = false;
+          });
+        }
+      },
+      onError: (error) {
+        print('USB 狀態錯誤: $error');
+      },
+    );
+  }
+
+  // 設備連接狀態監聽
+  void startDeviceConnectionStatusListening() {
+    usbClient.startDeviceConnectionStatusListening(
+      onStatusReceived: (data) {
+        print('設備連接狀態: $data');
+        if (data == false) {
+          usbClient.stopDeviceConnectionStatusListening();
+          setState(() {
+            _isConnected = false;
+          });
+        }
+      },
+      onError: (error) {
+        print('設備連接狀態錯誤: $error');
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('Plugin example app')),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              Center(child: Text('Running on: $_platformVersion\n')),
-              Center(child: Text('Attached Info: $_attachedInfo\n')),
-              Center(child: Text('Has USB Permission : $_hasPermission\n')),
-              Center(
-                child: Text('USB Permission allowed: $_isPermissionAllowed\n'),
-              ),
-              Center(
-                child: Text(
-                  'Usb Status Listening: $_isStartUsbStatusListening\n',
-                ),
-              ),
-              Center(
-                child: Text('Device Data Listining: $_isStartDataListening\n'),
-              ),
-              Center(
-                child: Text(
-                  'Device Connection Status Listining: $_isStartDeviceConnectionStatusListening\n',
-                ),
-              ),
-              Center(child: Text('Connected: $_isConnected\n')),
-              Center(
-                child: Text(
-                  'Data Received: ${_dataLength}_${_dataReceivedCount}\n',
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  SerialDevice serialDevice =
-                      await USBClient.getAttachedDevice();
-                  String text =
-                      'vendorId:${serialDevice.vendorId}\n productId:${serialDevice.productId}\n deviceName:${serialDevice.deviceName}\n productName:${serialDevice.productName}\n manufacturerName:${serialDevice.manufacturerName}\n';
+        appBar: AppBar(title: const Text('ACI+ 放大器控制範例')),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 狀態顯示卡片
+                  Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '設備資訊：$_attachedInfo',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'USB 權限：$_hasPermission',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'USB 狀態監聽：$_isStartUsbStatusListening',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '數據監聽：$_isStartDataListening',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '設備連接：$_isConnected',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'USB 狀態：$_usbStatus',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.indigo,
+                            ),
+                          ),
+                          // 🔥 重要：顯示分包資訊
+                          Text(
+                            '接收封包數：$_dataReceivedCount',
+                            style: TextStyle(fontSize: 14, color: Colors.blue),
+                          ),
+                          Text(
+                            '組合數據長度：${_combinedData.length} bytes',
+                            style: TextStyle(fontSize: 14, color: Colors.green),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
-                  setState(() {
-                    _attachedInfo = text;
-                  });
-                },
-                child: const Text('check attach'),
+                  SizedBox(height: 20),
+
+                  // 基本操作按鈕
+                  Text(
+                    '基本操作：',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: () async {
+                      SerialDevice serialDevice =
+                          await USBClient.getAttachedDevice();
+                      String text =
+                          'VendorId: ${serialDevice.vendorId}\n'
+                          'ProductId: ${serialDevice.productId}\n'
+                          'DeviceName: ${serialDevice.deviceName}\n'
+                          'ProductName: ${serialDevice.productName}\n'
+                          'ManufacturerName: ${serialDevice.manufacturerName}';
+                      setState(() {
+                        _attachedInfo = text;
+                      });
+                    },
+                    child: const Text('檢查連接的設備'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () async {
+                      bool hasPermission = await USBClient.hasUsbPermission();
+                      setState(() {
+                        _hasPermission = hasPermission;
+                      });
+                    },
+                    child: const Text('檢查 USB 權限'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () async {
+                      bool isPermissionAllowed =
+                          await usbClient.requestUsbPermission();
+                      setState(() {
+                        _isPermissionAllowed = isPermissionAllowed;
+                      });
+                    },
+                    child: const Text('請求 USB 權限'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () async {
+                      DeviceListResult deviceListResult =
+                          await usbClient.createDeviceList();
+                      print('設備數量: ${deviceListResult.deviceCount}');
+
+                      bool isConnected = await usbClient.connect();
+                      setState(() {
+                        _isConnected = isConnected;
+                      });
+                    },
+                    child: const Text('連接 ACI+ 放大器'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      startUsbStatusListening();
+                      setState(() {
+                        _isStartUsbStatusListening = true;
+                      });
+                    },
+                    child: const Text('開始 USB 狀態監聽'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      startDeviceConnectionStatusListening();
+                      setState(() {
+                        _isStartDeviceConnectionStatusListening = true;
+                      });
+                    },
+                    child: const Text('開始設備連接狀態監聽'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      startDataListening();
+                      setState(() {
+                        _isStartDataListening = true;
+                      });
+                    },
+                    child: const Text('開始數據監聽'),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  // ACI+ 指令按鈕
+                  Text(
+                    'ACI+ 控制指令：',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      // 🔥 重要：發送前清空組合數據
+                      _combinedData.clear();
+                      _dataReceivedCount = 0;
+
+                      List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
+                      Uint8List bytes = Uint8List.fromList(data);
+                      usbClient.write(bytes);
+                      print(
+                        '發送 ACI+ 標準指令: ${data.map((e) => '0x${e.toRadixString(16).padLeft(2, '0')}').join(' ')}',
+                      );
+                    },
+                    child: const Text('發送標準指令 [176, 3, 0, 0, 0, 6, 222, 41]'),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  // 清理按鈕
+                  Text(
+                    '清理操作：',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      // 停止所有監聽
+                      usbClient.stopUsbStatusListening();
+                      usbClient.stopListening();
+                      usbClient.stopDeviceConnectionStatusListening();
+                      setState(() {
+                        _isStartUsbStatusListening = false;
+                        _isStartDeviceConnectionStatusListening = false;
+                        _isStartDataListening = false;
+                        _isConnected = false;
+                        _combinedData.clear();
+                        _dataReceivedCount = 0;
+                      });
+                    },
+                    child: const Text('停止所有監聽'),
+                  ),
+
+                  ElevatedButton(
+                    onPressed: () {
+                      // 停止所有監聽
+                      usbClient.stopUsbStatusListening();
+                      usbClient.stopListening();
+                      usbClient.stopDeviceConnectionStatusListening();
+                      setState(() {
+                        _isStartUsbStatusListening = false;
+                        _isStartDeviceConnectionStatusListening = false;
+                        _isStartDataListening = false;
+                        _isConnected = false;
+                        _combinedData.clear();
+                        _dataReceivedCount = 0;
+                      });
+
+                      init(); // 重新初始化
+                    },
+                    child: const Text('重新初始化'),
+                  ),
+                ],
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  bool hasPermission = await USBClient.hasUsbPermission();
-
-                  print('Has USB Permission: $hasPermission');
-
-                  setState(() {
-                    _hasPermission = hasPermission;
-                  });
-                },
-                child: const Text('HasUsbPermission'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  bool isPermissionAllowed =
-                      await usbClient.requestUsbPermission();
-
-                  print('USB Permission: $isPermissionAllowed');
-
-                  setState(() {
-                    _isPermissionAllowed = true;
-                  });
-                },
-                child: const Text('requestUsbPermission'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  startUsbStatusListening();
-
-                  setState(() {
-                    _isStartUsbStatusListening = true;
-                  });
-                },
-                child: const Text('Start Usb Status Listening'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  startDeviceConnectionStatusListening();
-
-                  setState(() {
-                    _isStartDeviceConnectionStatusListening = true;
-                  });
-                },
-                child: const Text('Start Device Connection Status Listening'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  DeviceListResult deviceListResult =
-                      await usbClient.createDeviceList();
-                  print('deviceCount : ${deviceListResult.deviceCount}');
-                  print('error: ${deviceListResult.error ?? ''}');
-                  print('success: ${deviceListResult.success}');
-
-                  bool isConnected = await usbClient.connect();
-                  setState(() {
-                    _isConnected = true;
-                  });
-                },
-                child: const Text('connect'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  startDataListening();
-
-                  setState(() {
-                    _isStartDataListening = true;
-                  });
-                },
-                child: const Text('Start Data Listening'),
-              ),
-
-              ElevatedButton(
-                onPressed: () {
-                  List<int> data = [176, 3, 0, 0, 0, 6, 222, 41];
-                  Uint8List bytes = Uint8List.fromList(data);
-                  usbClient.write(bytes);
-                },
-                child: const Text('Send Data'),
-              ),
-
-              ElevatedButton(
-                onPressed: () {
-                  usbClient.stopUsbStatusListening();
-                  usbClient.stopListening();
-
-                  setState(() {
-                    _isStartUsbStatusListening = false;
-                    _isStartDeviceConnectionStatusListening = false;
-                    _isStartDataListening = false;
-                    _isConnected = false;
-                  });
-                },
-                child: const Text('dispose'),
-              ),
-
-              ElevatedButton(
-                onPressed: () {
-                  init();
-                },
-                child: const Text('reinitialize'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

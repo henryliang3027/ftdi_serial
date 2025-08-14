@@ -9,63 +9,56 @@ class USBClient {
   final FtdiSerial _ftdiSerial = FtdiSerial();
   Stream<dynamic>? _dataStream;
   StreamSubscription? _subscription;
-
   Stream<bool>? _usbStatusDataStream;
   StreamSubscription? _usbStatusSubscription;
-
   Stream<bool>? _deviceConnectionStatusDataStream;
   StreamSubscription? _deviceConnectionStatusSubscription;
 
+  // 創建設備列表
   Future<DeviceListResult> createDeviceList() async {
-    // Initialize the USB client
-    DeviceListResult deviceListResult = await _ftdiSerial.createDeviceList();
-
-    return deviceListResult;
+    return await _ftdiSerial.createDeviceList();
   }
 
+  // 檢查 USB 權限
   static Future<bool> hasUsbPermission() async {
-    // Check if USB permission is granted
     return await FtdiSerial.hasUsbPermission();
   }
 
+  // 請求 USB 權限
   Future<bool> requestUsbPermission() async {
-    // Request USB permission
     return await _ftdiSerial.requestUsbPermission();
   }
 
-  Future write(Uint8List data) async {
-    await _ftdiSerial.write(data);
-  }
-
+  // 連接設備
   Future<bool> connect() async {
     return await _ftdiSerial.connectToDevice();
   }
 
+  // 獲取已連接設備資訊
   static Future<SerialDevice> getAttachedDevice() async {
     return await FtdiSerial.getAttachedDevice();
   }
 
+  // 發送數據
+  Future write(Uint8List data) async {
+    await _ftdiSerial.write(data);
+  }
+
+  // 開始監聽數據（重要：處理分包）
   void startListening({
     required Function(dynamic data) onDataReceived,
     Function(dynamic error)? onError,
   }) {
-    // Cancel existing subscription if any
     _subscription?.cancel();
-
-    // Get the stream from FtdiSerial
     _dataStream = _ftdiSerial.dataStream;
 
-    // Subscribe to the stream
     _subscription = _dataStream?.listen(
       (data) {
-        // Handle received data
+        // 每個封包都會觸發這個回調
         onDataReceived(data);
       },
       onError: (error) {
-        // Handle errors
-        if (onError != null) {
-          onError(error);
-        }
+        if (onError != null) onError(error);
         print('Stream error: $error');
       },
       onDone: () {
@@ -75,84 +68,61 @@ class USBClient {
     );
   }
 
+  // 停止監聽數據
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;
   }
 
+  // USB 狀態監聽
   void startUsbStatusListening({
     required Function(dynamic data) onStatusReceived,
     Function(dynamic error)? onError,
   }) {
-    // Cancel existing subscription if any
     _usbStatusSubscription?.cancel();
-
-    // Get the stream from FtdiSerial
     _usbStatusDataStream = FtdiSerial.usbStatusStream;
 
-    // Subscribe to the stream
     _usbStatusSubscription = _usbStatusDataStream?.listen(
-      (data) {
-        // Handle received data
-        onStatusReceived(data);
-      },
+      (data) => onStatusReceived(data),
       onError: (error) {
-        // Handle errors
-        if (onError != null) {
-          onError(error);
-        }
-        print('Stream error: $error');
-      },
-      onDone: () {
-        print('Stream closed');
-        _usbStatusSubscription = null;
+        if (onError != null) onError(error);
+        print('USB Status Stream error: $error');
       },
     );
   }
 
+  // USB 狀態監聽
   void stopUsbStatusListening() {
     _usbStatusSubscription?.cancel();
     _usbStatusSubscription = null;
   }
 
+  // 設備連接狀態監聽
   void startDeviceConnectionStatusListening({
     required Function(dynamic data) onStatusReceived,
     Function(dynamic error)? onError,
   }) {
-    // Cancel existing subscription if any
     _deviceConnectionStatusSubscription?.cancel();
-
-    // Get the stream from FtdiSerial
     _deviceConnectionStatusDataStream =
         _ftdiSerial.deviceConnectionStatusStream;
 
-    // Subscribe to the stream
     _deviceConnectionStatusSubscription = _deviceConnectionStatusDataStream
         ?.listen(
-          (data) {
-            // Handle received data
-            onStatusReceived(data);
-          },
+          (data) => onStatusReceived(data),
           onError: (error) {
-            // Handle errors
-            if (onError != null) {
-              onError(error);
-            }
-            print('Stream error: $error');
-          },
-          onDone: () {
-            print('Stream closed');
-            _deviceConnectionStatusSubscription = null;
+            if (onError != null) onError(error);
+            print('Device Connection Stream error: $error');
           },
         );
   }
 
+  // 停止設備連接狀態監聽
   void stopDeviceConnectionStatusListening() {
     _deviceConnectionStatusSubscription?.cancel();
     _deviceConnectionStatusSubscription = null;
   }
 
-  // Don't forget to dispose
+  // 清理資源
   void dispose() {
     stopListening();
     stopUsbStatusListening();
