@@ -46,14 +46,9 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
     private EventSink readSink;
     private ReadThread readThread;
 
-    // for detecting device status
+    // for detecting USB status (attached/detached)
     private EventChannel usbStatusChannel;
     private EventSink usbStatusSink;
-
-    // for monitoring USB permission status
-    private EventChannel usbPermissionChannel;
-    private EventSink usbPermissionSink;
-    private BroadcastReceiver usbPermissionReceiver;
 
     // for monitoring FTDI device connection status
     private EventChannel deviceConnectionChannel;
@@ -117,26 +112,6 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
                 if (usbStatusReceiver != null) {
                     context.unregisterReceiver(usbStatusReceiver);
                     usbStatusReceiver = null;
-                }
-            }
-        });
-
-        // Add USB permission monitoring channel
-        usbPermissionChannel = new EventChannel(flutterPluginBinding.getBinaryMessenger(),
-                "ftdi_serial/usb_permission");
-        usbPermissionChannel.setStreamHandler(new StreamHandler() {
-            @Override
-            public void onListen(Object arguments, EventChannel.EventSink events) {
-                usbPermissionSink = events;
-                registerUsbPermissionReceiver();
-            }
-
-            @Override
-            public void onCancel(Object arguments) {
-                usbPermissionSink = null;
-                if (usbPermissionReceiver != null) {
-                    context.unregisterReceiver(usbPermissionReceiver);
-                    usbPermissionReceiver = null;
                 }
             }
         });
@@ -263,49 +238,6 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         context.registerReceiver(usbStatusReceiver, filter);
-    }
-
-    private void registerUsbPermissionReceiver() {
-        usbPermissionReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context ctx, Intent intent) {
-                String action = intent.getAction();
-
-                Log.d("TAG", "USB Permission receiver - action: " + action);
-
-                if (ACTION_USB_PERMISSION.equals(action)) {
-                    UsbDevice receivedDevice;
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice.class);
-                    } else {
-                        receivedDevice = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                    }
-
-                    boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
-
-                    Log.d("TAG", "USB Permission granted: " + granted);
-
-                    if (usbPermissionSink != null) {
-                        mainHandler.post(() -> {
-                            if (usbPermissionSink != null) {
-                                usbPermissionSink.success(granted);
-                            }
-                        });
-                    }
-                }
-            }
-        };
-
-        // Register for USB permission events
-        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(usbPermissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            context.registerReceiver(usbPermissionReceiver, filter);
-        }
-
-        Log.d("TAG", "USB Permission receiver registered");
     }
 
     private boolean hasUsbPermission() {
@@ -571,9 +503,5 @@ public class FtdiSerialPlugin implements FlutterPlugin, MethodCallHandler {
             permissionReceiver = null;
         }
 
-        if (usbPermissionReceiver != null) {
-            context.unregisterReceiver(usbPermissionReceiver);
-            usbPermissionReceiver = null;
-        }
     }
 }
