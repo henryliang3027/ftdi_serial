@@ -1,7 +1,7 @@
 # FTDI Serial Flutter Plugin 📱
 
-這個插件專為 ACI+ 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
-ACI+ 放大器使用特定的通信協定，需要發送特定格式的指令來控制設備功能。
+這個插件專為 ACI 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
+ACI 放大器使用特定的通信協定，需要發送特定格式的指令來控制設備功能。
 
 ## 快速開始
 
@@ -37,14 +37,14 @@ import 'package:ftdi_serial/ftdi_serial.dart';
 // 創建 FTDI 實例
 final ftdiSerial = FtdiSerial();
 
-// 發送 ACI+ 放大器控制指令
+// 發送 ACI 放大器控制指令
 Future<void> sendAciCommand() async {
-  // ACI+ 放大器特定指令格式
+  // ACI 放大器特定指令格式
   List<int> command = [176, 3, 0, 0, 0, 6, 222, 41];
   await ftdiSerial.write(Uint8List.fromList(command));
 }
 
-// 接收 ACI+ 放大器回應數據
+// 接收 ACI 放大器回應數據
 void listenForAciResponse() {
   ftdiSerial.dataStream.listen((data) {
     print('ACI+ 回應數據：$data');
@@ -80,6 +80,51 @@ ftdiSerial.dataStream.listen((data) {
 });
 ```
 
+
+## 📚 API 函數說明
+
+#### Stream 屬性
+
+**`Stream<dynamic> dataStream`**
+- **功能**：獲取從 FTDI 接收到的二進制數據流
+- **回傳**：包含接收二進制數據的 Stream
+
+**`static Stream<bool> usbStatusStream`**
+- **功能**：監控 USB 連接狀態變化
+- **回傳**：布林值 Stream，true 表示設備已連接，false 表示設備未連接
+
+**`Stream<bool> deviceConnectionStatusStream`**
+- **功能**：監控 FTDI 與 ACI 放大器的連線狀態
+- **回傳**：布林值 Stream，true 表示設備已連線，false 表示未連線
+
+#### 靜態方法
+
+**`static Future<SerialDevice> getAttachedDevice()`** 
+- **功能**：獲取 FTDI 資訊
+- **回傳**：SerialDevice 物件，FTDI 詳細資訊
+
+**`static Future<bool> hasUsbPermission()`**
+- **功能**：檢查是否已獲得 USB 權限
+- **回傳**：布林值，true 表示已有權限，false 表示無權限
+
+#### 實例方法
+
+**`Future<bool> requestUsbPermission()`**
+- **功能**：請求 USB 存取權限
+- **回傳**：布林值，true 表示權限請求成功，false 表示失敗
+
+**`Future<DeviceListResult> createDeviceList()`**
+- **功能**：創建並獲取 FTDI 列表
+- **回傳**：DeviceListResult 物件，包含可用的 FTDI 列表
+
+**`Future<bool> connectToDevice()`**
+- **功能**：連接到 ACI 放大器
+- **回傳**：布林值，true 表示連接成功，false 表示連接失敗
+
+**`Future<bool> write(Uint8List data)`**
+- **功能**：向 ACI 放大器發送數據
+- **參數**：`data` - 要發送的二進制數據（Uint8List 格式）
+- **回傳**：布林值，true 表示發送成功，false 表示發送失敗
 
 ## 🔧 Android 設定
 
