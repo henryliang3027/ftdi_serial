@@ -116,7 +116,7 @@ ftdiSerial.dataStream.listen((data) {
 #### 實例方法
 
 **`Future<DeviceListResult> createDeviceList()`**
-- **功能**：調用 `connectToDevice()` 之前需要調用的 FTDI API, d2xx.jar library 內部會檢測 FTDI 數量
+- **功能**：調用 `connectToDevice()` 之前需要調用的 FTDI API, `d2xx.jar` library 內部會檢測 FTDI 數量
 - **回傳**：`DeviceListResult` 物件
 
 **`Future<bool> connectToDevice()`**
