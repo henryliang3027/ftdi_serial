@@ -25,8 +25,8 @@ class USBClient {
   }
 
   // 請求 USB 權限
-  Future<bool> requestUsbPermission() async {
-    return await _ftdiSerial.requestUsbPermission();
+  static Future<bool> requestUsbPermission() async {
+    return await FtdiSerial.requestUsbPermission();
   }
 
   // 連接設備

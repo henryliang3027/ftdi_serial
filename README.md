@@ -1,6 +1,7 @@
 # FTDI Serial Flutter Plugin 📱
 
 這個插件專為 ACI 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
+插件底層串接 Android 平台的 `d2xx.jar` library，提供原生的 FTDI 存取功能。
 ACI 放大器使用特定的通信協定，需要發送特定格式的指令來控制設備功能。
 
 ## 快速開始
@@ -54,6 +55,7 @@ void listenForAciResponse() {
 }
 ```
 
+完整使用範例請參考：`example/lib/main.dart` 和 `example/lib/usb_client.dart`
 
 ### 3. FTDI 封包傳輸說明
 
@@ -107,15 +109,15 @@ ftdiSerial.dataStream.listen((data) {
 - **功能**：檢查是否已獲得 USB 權限
 - **回傳**：布林值，true 表示已有權限，false 表示無權限
 
-#### 實例方法
-
 **`Future<bool> requestUsbPermission()`**
 - **功能**：請求 USB 存取權限
 - **回傳**：布林值，true 表示權限請求成功，false 表示失敗
 
+#### 實例方法
+
 **`Future<DeviceListResult> createDeviceList()`**
-- **功能**：創建並獲取 FTDI 列表
-- **回傳**：DeviceListResult 物件，包含可用的 FTDI 列表
+- **功能**：調用 `connectToDevice()` 之前需要調用的 FTDI API, d2xx.jar library 內部會檢測 FTDI 數量
+- **回傳**：`DeviceListResult` 物件
 
 **`Future<bool> connectToDevice()`**
 - **功能**：連接到 ACI 放大器
@@ -125,6 +127,15 @@ ftdiSerial.dataStream.listen((data) {
 - **功能**：向 ACI 放大器發送數據
 - **參數**：`data` - 要發送的二進制數據（Uint8List 格式）
 - **回傳**：布林值，true 表示發送成功，false 表示發送失敗
+
+#### 資料類別
+
+**`DeviceListResult`**
+- **功能**：表示創建 FTDI 的結果
+- **屬性**：
+  - `bool success` - 創建設備列表是否成功
+  - `String? error` - 錯誤訊息（如果有的話）
+  - `int deviceCount` - 檢測到的 FTDI 數量
 
 ## 🔧 Android 設定
 

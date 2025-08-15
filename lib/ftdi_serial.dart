@@ -6,12 +6,23 @@ import 'package:ftdi_serial/serial_device.dart';
 import 'ftdi_serial_platform_interface.dart';
 
 class FtdiSerial {
+  // 使用靜態變數來緩存同一個廣播流 (broadcast stream) 實例
+  static Stream<bool>? _sharedUsbStatusStream;
+  static Stream<dynamic>? _sharedDataStream;
+  static Stream<bool>? _sharedDeviceConnectionStatusStream;
+
   Stream<dynamic> get dataStream {
-    return FtdiSerialPlatform.instance.dataStream;
+    // 第一次調用 FtdiSerial.dataStream 時會創建廣播流
+    // 多個監聽者可以共享同一個流實例
+    _sharedDataStream ??= FtdiSerialPlatform.instance.dataStream;
+    return _sharedDataStream!;
   }
 
   static Stream<bool> get usbStatusStream {
-    return FtdiSerialPlatform.instance.usbStatusStream;
+    // 第一次調用 FtdiSerial.usbStatusStream 時會創建廣播流
+    // 多個監聽者可以共享同一個流實例
+    _sharedUsbStatusStream ??= FtdiSerialPlatform.instance.usbStatusStream;
+    return _sharedUsbStatusStream!;
   }
 
   static Future<SerialDevice> getAttachedDevice() {
@@ -22,12 +33,16 @@ class FtdiSerial {
     return FtdiSerialPlatform.instance.hasUsbPermission();
   }
 
-  Stream<bool> get deviceConnectionStatusStream {
-    return FtdiSerialPlatform.instance.deviceConnectionStatusStream;
+  static Future<bool> requestUsbPermission() {
+    return FtdiSerialPlatform.instance.requestUsbPermission();
   }
 
-  Future<bool> requestUsbPermission() {
-    return FtdiSerialPlatform.instance.requestUsbPermission();
+  Stream<bool> get deviceConnectionStatusStream {
+    // 第一次調用 FtdiSerial.deviceConnectionStatusStream 時會創建廣播流
+    // 多個監聽者可以共享同一個流實例
+    _sharedDeviceConnectionStatusStream ??=
+        FtdiSerialPlatform.instance.deviceConnectionStatusStream;
+    return _sharedDeviceConnectionStatusStream!;
   }
 
   Future<DeviceListResult> createDeviceList() {
