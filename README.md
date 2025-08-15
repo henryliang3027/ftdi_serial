@@ -1,4 +1,4 @@
-# FTDI Serial Flutter Plugin 📱
+# FTDI Serial Flutter Plugin
 
 這個插件專為 ACI 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
 插件底層串接 Android 平台的 `d2xx.jar` library，提供原生的 FTDI 存取功能。
@@ -83,7 +83,7 @@ ftdiSerial.dataStream.listen((data) {
 ```
 
 
-## 📚 API 函數說明
+## API 函數說明
 
 #### Stream 屬性
 
@@ -137,7 +137,7 @@ ftdiSerial.dataStream.listen((data) {
   - `String? error` - 錯誤訊息（如果有的話）
   - `int deviceCount` - 檢測到的 FTDI 數量
 
-## 🔧 Android 設定
+## Android 設定
 
 ### 第一步：USB 設備過濾器
 
