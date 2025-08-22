@@ -1,12 +1,12 @@
 # FTDI Serial Flutter Plugin
 
-這個插件專為 ACI 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
-插件底層串接 Android 平台的 `d2xx.jar` library，提供原生的 FTDI 存取功能。
+這個套件專為 ACI 放大器設計，透過 FTDI USB 轉 UART 晶片與設備進行通信。
+套件底層串接 Android 平台的 `d2xx.jar` library，提供原生的 FTDI 存取功能。
 ACI 放大器使用特定的通信協定，需要發送特定格式的指令來控制設備功能。
 
 ## 快速開始
 
-### 1. 安裝插件
+### 1. 安裝套件
 
 在 ACI+ App 專案中的 `pubspec.yaml` 檔案中添加：
 
